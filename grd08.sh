@@ -10,6 +10,7 @@ do
 	do
 		echo "Solving problem:${problema[j]} with SAM - seed:${semente[i]}"
 		#./bin/cgp tables/cm42a.ep seed=1 ncol=100 maxeval=29 mutation=1
-		./bin/cgp tables/${problema[j]}.ep seed=${semente[i]} ncol=${tamanho[j]} maxeval=${genmax[j]} mutation=1 resultados/${problema[j]}_${semente[i]} 
+		./bin/cgp tables/${problema[j]}.ep seed=${semente[i]} ncol=${tamanho[j]} maxeval=${genmax[j]} mutation=1 resultados/${problema[j]}_${semente[i]}.txt
+		#./bin/cgp tables/${problema[j]}.ep seed=${semente[i]} ncol=${tamanho[j]} maxeval=${genmax[j]} mutation=1 | bzip2 -9 -c > resultados/${problema[j]}_${semente[i]}.out.bz2
 	done
 done
