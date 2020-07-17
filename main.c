@@ -62,7 +62,7 @@ int evolves_cgp_bdd(Individual *population, int *gates)
     for(int i = 0; i < table->num_inputs; i++){
         fprintf(out_file, "DI%d\t", i);
     }
-    fprintf(out_file, "\n");
+    fprintf(out_file, "Mutation\n");
     while (1)
     {
         if(mutation == 1)
@@ -214,7 +214,7 @@ int main(int argc, char const *argv[])
     bdd_init(10000000, 100000);
 
     Individual *population = (Individual *)malloc(sizeof(Individual) * NPOP);
-    int gates[NGATES] = {1, 2, 3, 4, 5, 6, 7, 8};
+    int gates[NGATES] = {1, 2, 3, 4, 5, 6, 7};
 
     table = (Table *)malloc(sizeof(Table));
     table_constructor(argv[1]);

@@ -34,7 +34,7 @@
 #define NGATES 7
 
 extern char *strtok_r(char *, const char *, char **);
-
+char mutation_type[4];
 FILE *out_file;
 int LB;
 int NCOL;
@@ -519,7 +519,7 @@ void clear_bddref(Individual *individual, int output);
 */
 void calculate_individual_sat_count(Individual *individual);
 
-void print_individual_RL_information(Individual* individual, int gene);
+void print_individual_information(Individual* individual, int gene, char *mutation);
 
 /**
 * @brief Function to randomly initialize all indivividuals in an population
@@ -663,9 +663,6 @@ void get_gate_string(int gate, char *temp)
     case 7:
         strncpy(temp, "XNOR", 6);
         break;
-	case 8:
-		strncpy(temp, "WIRE", 6);
-		break;
     default:
         fprintf(out_file, "Gate number not possible!\n");
         exit(1);
@@ -1266,6 +1263,8 @@ void mutate_gene(Individual *individual, int *gates, int gene_pos)
     int col = get_gene_col(gene_pos);
     if (temp == 0 || temp == 1)
     {
+        if(temp == 0) strcpy(mutation_type, "I1G\0");
+        else strcpy(mutation_type, "I2G\0");
         randomize_inputs(individual, row, col, temp);
 		individual->last_mut[0]=-1;
 		individual->last_mut[1]=-1;
@@ -1277,7 +1276,8 @@ void mutate_gene(Individual *individual, int *gates, int gene_pos)
 		temp = randomize(0, NGATES);
 		individual->last_mut[0] = individual->genotype[pos].gate-1;
 		individual->last_mut[1] = gates[temp]-1;
-		individual->genotype[pos].gate = gates[temp];	
+		individual->genotype[pos].gate = gates[temp];
+        strcpy(mutation_type, "FG\0");
     }
 }
 
@@ -1286,6 +1286,7 @@ void mutate_output(Individual *individual, int gene_pos)
     int pos = gene_pos - individual->genotype_size - table->num_inputs;
     int temp = randomize(0, table->num_inputs + individual->genotype_size);
     individual->output[pos] = temp;
+    strcpy(mutation_type, "OG\0");
 }
 
 void mutate_individual(Individual *individual, int *gates, int sorted_gene)
@@ -1374,7 +1375,7 @@ void sam(Individual *individual, int *gates)
 
         // fprintf(out_file, "Mutate Gene: %d\t", temp);
         // fprintf(out_file, "active: %d\n",  individual->genotype[pos].active);
-        print_individual_RL_information(individual, temp);
+        print_individual_information(individual, temp, "-");
 
         if (individual->genotype[pos].active == 1 || temp >= table->num_inputs + individual->genotype_size)
         {
@@ -1386,14 +1387,15 @@ void sam(Individual *individual, int *gates)
             get_max_depth(individual);
             get_num_gates(individual);
             count_num_transistors_individual(individual);
-            print_individual_RL_information(individual, temp);
+            print_individual_information(individual, temp, mutation_type);
             break;
         }
         
         mutate_individual(individual, gates, temp);
-        print_individual_RL_information(individual, temp);
+        print_individual_information(individual, temp, mutation_type);
         count++;
     }
+    fflush(stdout);
 }
 
 void gam(Individual *individual, int *gates, int worst_subgraph)
@@ -1498,9 +1500,8 @@ int get_max_depth_for_each_output(Individual *individual, int output)
         int left_depth = 0, right_depth = 0;
 
         left_depth = get_max_depth_for_each_output(individual, individual->genotype[pos].input[0]);
-        if(individual->genotype[pos].gate == 8)
-            return left_depth;
-        else if(individual->genotype[pos].gate != 3)
+        
+        if(individual->genotype[pos].gate != 3)
             right_depth = get_max_depth_for_each_output(individual, individual->genotype[pos].input[1]);
         
         if (left_depth > right_depth)
@@ -1537,15 +1538,9 @@ void get_max_depth_from_inputs(Individual *individual, int gene, int depth, int 
         int col = get_gene_col(gene);
         int pos = get_gene_position(row, col);
 
-        
-        if(individual->genotype[pos].gate == 8)
-            get_max_depth_from_inputs(individual, individual->genotype[pos].input[0], depth, inputs);
-        else
-        {
-            get_max_depth_from_inputs(individual, individual->genotype[pos].input[0], depth + 1, inputs);
-            if(individual->genotype[pos].gate != 3)
-                get_max_depth_from_inputs(individual, individual->genotype[pos].input[1], depth + 1, inputs);
-        }
+        get_max_depth_from_inputs(individual, individual->genotype[pos].input[0], depth + 1, inputs);
+        if(individual->genotype[pos].gate != 3)
+            get_max_depth_from_inputs(individual, individual->genotype[pos].input[1], depth + 1, inputs);
     }
 }
 
@@ -1563,9 +1558,8 @@ int get_max_depth_from_outputs(Individual *individual, int gene, int sorted_gene
         int left_depth = -1, right_depth = -1;
 
         left_depth = get_max_depth_from_outputs(individual, individual->genotype[pos].input[0], sorted_gene);
-        if(individual->genotype[pos].gate == 8)
-            return left_depth;
-        else if(individual->genotype[pos].gate != 3)
+
+        if(individual->genotype[pos].gate != 3)
             right_depth = get_max_depth_from_outputs(individual, individual->genotype[pos].input[1], sorted_gene);
         
         if(left_depth == -1 && right_depth == -1)
@@ -1602,9 +1596,6 @@ int get_num_transistors(int gate)
     case 7: //XNOR
         return 4;
         break;
-	case 8: //WIRE
-		return 0;
-		break;
     default:
         fprintf(out_file, "Gate code unknow!\n");
         exit(1);
@@ -1627,7 +1618,7 @@ void count_num_transistors_individual(Individual *individual)
 
 void get_num_gates(Individual *individual)
 {
-    int gates_count[NGATES] = {0, 0, 0, 0, 0, 0, 0, 0};
+    int gates_count[NGATES] = {0, 0, 0, 0, 0, 0, 0};
     // char temp[6];
     int total = 0;
 
@@ -1644,7 +1635,8 @@ void get_num_gates(Individual *individual)
     {
         // get_gate_string(i + 1, temp);
         // fprintf(out_file, "%s: %d\n", temp, gates_count[i]);
-        if(i != NGATES -1) total += gates_count[i];
+        //if(i != NGATES -1) 
+        total += gates_count[i];
     }
     individual->num_gates = total;
 }
@@ -1706,9 +1698,6 @@ bdd get_bdd_output(bdd input0, int gate, bdd input1)
     case 7: //XNOR
         return bdd_addref(bdd_not(bdd_apply(input0, input1, bddop_xor)));
         break;
-	case 8: //WIRE 
-		return bdd_addref(input0);
-		break;
     default:
         fprintf(out_file, "Gate code unknow!\n");
         exit(1);
@@ -1775,7 +1764,7 @@ void calculate_individual_sat_count(Individual *individual)
     }
 }
 
-void print_individual_RL_information(Individual *individual, int gene){
+void print_individual_information(Individual *individual, int gene, char *mutation){
     
     if(gene >= table->num_inputs + individual->genotype_size)
     {
@@ -1819,7 +1808,7 @@ void print_individual_RL_information(Individual *individual, int gene){
         for(int i = 0; i < table->num_inputs; i++){
             fprintf(out_file,"%d\t", inputs[i]);
         }
-        fprintf(out_file, "\n");
+        fprintf(out_file, "%s\n", mutation);
     }
 }
 
